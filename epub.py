@@ -99,24 +99,23 @@ class EpubItem (object):
 
 class metadata ():
     def __init__ (self):
-        self.Title = None
-        self.Creator = None
-        self.Subject = None
-        self.Description = None
-        self.Publisher = None
-        self.Contributor = None
-        self.Date = None
-        self.Type = None
-        self.Format = None
-        self.Identifier = None
-        self.Source = None
-        self.Language = None
-        self.Relation = None
-        self.Coverage = None
-        self.Rights = None
-        self.about = None
-        self.cover = None
-        self.other = []
+        self.data = {"title":[],
+                   "creator":[],
+                   "subject":[],
+                   "description":[],
+                   "publisher":[],
+                   "contributor":[],
+                   "date":[],
+                   "type":[],
+                   "format":[],
+                   "identifier":[],
+                   "source":[],
+                   "language":[],
+                   "relation":[],
+                   "coverage":[],
+                   "rights":[],
+                   "meta":[]
+                   }
     
     def read (self, opfdom):
         #Name spaces are frickin annoying I have discovered, please see below for retardation
@@ -125,23 +124,39 @@ class metadata ():
         for node in opfdom.xpath("//*[local-name() = 'metadata']/*"):
             meta = {}
             [nsurl, tagname] = lxmlNStagtolist(node.tag)
-            dcns = "{http://purl.org/dc/elements/1.1/}"
-            opf = ""
-            if nsurl == dcns:
-                if tagname == "title":
-                    self.Title = node.value
-                if tagname == "Creator":
-                    self.Title = node.value
-                if tagname == "title":
-                    self.Title = node.value
-                if tagname == "title":
-                    self.Title = node.value
-                if tagname == "title":
-                    self.Title = node.value
-                if tagname == "title":
-                    self.Title = node.value
-                if tagname == "title":
-                    self.Title = node.value
+            
+            self.dc
+            
+            if tagname.tolower() == "title":
+                self.Title = node.value
+            if tagname.tolower() == "creator":
+                self.Title = node.value
+            if tagname.tolower() == "subject":
+                self.Title = node.value
+            if tagname.tolower() == "description":
+                self.Title = node.value
+            if tagname.tolower() == "publisher":
+                self.Title = node.value
+            if tagname.tolower() == "contributor":
+                self.Title = node.value
+            if tagname.tolower() == "date":
+                self.Title = node.value
+            if tagname.tolower() == "type":
+                self.Title = node.value
+            if tagname.tolower() == "format":
+                self.Title = node.value
+            if tagname.tolower() == "identifier":
+                self.Title = node.value
+            if tagname.tolower() == "source":
+                self.Title = node.value
+            if tagname.tolower() == "language":
+                self.Title = node.value
+            if tagname.tolower() == "relation":
+                self.Title = node.value
+            if tagname.tolower() == "coverage":
+                self.Title = node.value
+            if tagname.tolower() == "rights":
+                self.Title = node.value
             meta["nsurl"] = nsurl
             meta["tag"] = tagname
             for ns in self.metaNs:
