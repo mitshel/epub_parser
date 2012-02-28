@@ -15,8 +15,7 @@ def _checkfile (filename, mode="r"):
     return testfile
 
 def lxmlNStagtolist (element):
-    tag = element.tag
-    plonk = re.match("(\{[^\}]*\})?(.*)", tag)
+    plonk = re.match("(\{[^\}]*\})?(.*)", element)
     return [plonk.group(1), plonk.group(2)]
 
 def _getcontainer (archive):
@@ -96,8 +95,91 @@ class EpubItem (object):
                 out.writestr(self.archloc, input, comptype)
             except:
                 raise IOError, "Cannot write to  '%s'" % self.archloc
+
+
+class metadata ():
+    def __init__ (self):
+        self.Title = None
+        self.Creator = None
+        self.Subject = None
+        self.Description = None
+        self.Publisher = None
+        self.Contributor = None
+        self.Date = None
+        self.Type = None
+        self.Format = None
+        self.Identifier = None
+        self.Source = None
+        self.Language = None
+        self.Relation = None
+        self.Coverage = None
+        self.Rights = None
+        self.about = None
+        self.cover = None
+        self.other = []
+    
+    def read (self, opfdom):
+        #Name spaces are frickin annoying I have discovered, please see below for retardation
+        meta = opfdom.xpath("//*[local-name() = 'metadata']/*")[0]
+        self.metaNs = meta.nsmap        
+        for node in opfdom.xpath("//*[local-name() = 'metadata']/*"):
+            meta = {}
+            [nsurl, tagname] = lxmlNStagtolist(node.tag)
+            dcns = "{http://purl.org/dc/elements/1.1/}"
+            opf = ""
+            if nsurl == dcns:
+                if tagname == "title":
+                    self.Title = node.value
+                if tagname == "Creator":
+                    self.Title = node.value
+                if tagname == "title":
+                    self.Title = node.value
+                if tagname == "title":
+                    self.Title = node.value
+                if tagname == "title":
+                    self.Title = node.value
+                if tagname == "title":
+                    self.Title = node.value
+                if tagname == "title":
+                    self.Title = node.value
+            meta["nsurl"] = nsurl
+            meta["tag"] = tagname
+            for ns in self.metaNs:
+                if "{"+self.metaNs[ns]+"}" == nsurl:
+                    if ns == None:
+                        ns = ""
+                    else:
+                        ns = ns+":"
+                    meta["nstag"] = ns+tagname
+                    
+            if node.attrib:
+                meta["attr"] = {}
+                for attr in node.attrib:
+                    [nsurl, attrname] = lxmlNStagtolist(attr)
+                    attrId = False
+                    for ns in self.metaNs:
+                        if "{"+self.metaNs[ns]+"}" == nsurl:
+                            if ns == None:
+                                ns = ""
+                            else:
+                                ns = ns+":"
+                            attrId = ns+attrname
+                    if attrId:
+                        meta["attr"][attrId] = {attr:node.attrib[attr]} 
+
+            if node.text:
+                meta["value"] = node.text
         
+        if len(meta) > 0:
+            for ele in meta:
+                if ele["nstag"] == "dc:title":
+                    self.Title = ele["value"]
+                if ele["nstag"] == "dc:creator":
+                    self.Title = ele["value"]
+                if ele["nstag"] == "dc:identifier":
+                    self.Title = ele["value"]
         
+    
 class OPF ():
     def __init__ (self, opfpath, opfdom, filelist):
         self.clearopf()
@@ -112,17 +194,20 @@ class OPF ():
         self.meta = []
         self.refs = []
         
+    def read (self):
+        self._readmeta()
+        self._readmanifest()
+        self._readspine()
+        self._readrefs()
+    
+    def getref (self):
+        dosomething = 1
+    
     def _readmanifest (self):
         for node in self.opfdom.xpath("//*[local-name() = 'manifest']//*[local-name() ='item']"):
             relpath = _filerelpath(self.opfpath, os.path.join(os.path.dirname(self.opfpath), node.get('href')))
             abspath = os.path.join(os.path.dirname(self.opfpath), relpath)
-            #/oebps/package.opf text/chaper01.html
-            #/oebps/package.opf /oebps/text/chaper01.html
-            #/oebps/package.opf ../text/chapter01.html
-            #/oebps/
-            #print relpath, abspath
             for item in self.filelist:
-                #print item.archloc, abspath
                 if item.archloc == abspath:
                     if node.get("id"):
                         item.opfid = node.get("id")
@@ -131,16 +216,9 @@ class OPF ():
                     item.opf = True
                     item.opfRelLoc = relpath
                     self.manifest.append(item)
-        print self.manifest
                     
     def _readmeta (self):
-        meta = self.opfdom.xpath("//*[local-name() = 'metadata']/*")[0]
-        self.metaNs = meta.nsmap
-        for node in self.opfdom.xpath("//*[local-name() = 'metadata']/*"):
-            dosomething =1
-            #[nsurl, tagname] = lxmlNStagtolist(node)
-            #print nsurl, tagname
-            #print lxmlNStagtolist(node)
+        dotsomething =1 
                     
     def _readspine (self):
         spine = self.opfdom.xpath("//*[local-name() = 'spine']")[0]
@@ -164,8 +242,10 @@ class OPF ():
                     item.refs.append([node.get("type"), node.get("title")])
                     self.refs.append([node.get("type"), node.get("title"), item])
 class NCX:
-    def __init__ (self, ncx):
-        self.ncx = ncx
+    def __init__ (self, ncxfile):
+        self.ncx = ncxfile
+        
+        
         
                 
 
