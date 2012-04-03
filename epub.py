@@ -4,6 +4,8 @@ import mimetypes
 import re
 import xml.dom.minidom
 
+#this is a comment
+
 class BadEpubFile (Exception):
     pass
         
