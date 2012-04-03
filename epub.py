@@ -2,7 +2,7 @@ import zipfile
 import os.path
 import mimetypes
 import re
-from lxml import etree
+import xml.dom.minidom
 
 class BadEpubFile (Exception):
     pass
@@ -28,26 +28,28 @@ def _getcontainer (archive):
 
 def _getrootfile (archive, container):
     try:
-        dom = etree.parse(container)
+        dom = xml.dom.minidom.parse(container)
+        dom.normalize()
     except:
         raise BadEpubFile, "META-INF/container.xml is invalid XML"
     
     try: 
-        rootfile = dom.xpath("//*[local-name() = 'rootfile']")[0]
+        rootfile = dom.getElementsByTagName("rootfile")[0]
     except:
         raise BadEpubFile, "META-INF/container.xml is improperly formatted (unable to find rootfile)"
     
     try:
-        root = archive.open(rootfile.get("full-path"))
+        root = archive.open(rootfile.getAttribute("full-path"))
     except:
-        raise BadEpubFile, "There is no item named '%s' in this epubfile" % rootfile.get("full-path")
+        raise BadEpubFile, "There is no item named '%s' in this epubfile" % rootfile.getAttribute("full-path")
     
     try:
-        rootdom = etree.parse(root)
+        rootdom = xml.dom.minidom.parse(root)
+        rootdom.normalize()
     except:
-        raise BadEpubFile, "'%s' is invalid XML" % rootfile.get("full-path")
+        raise BadEpubFile, "'%s' is invalid XML" % rootfile.getAttribute("full-path")
     
-    return [rootdom, rootfile.get("full-path")]
+    return [rootdom, rootfile.getAttribute("full-path")]
 
 def _filerelpath (opfpath, target):
     return os.path.relpath(target, os.path.dirname(opfpath))
@@ -119,80 +121,46 @@ class metadata ():
     
     def read (self, opfdom):
         #Name spaces are frickin annoying I have discovered, please see below for retardation
-        meta = opfdom.xpath("//*[local-name() = 'metadata']/*")[0]
-        self.metaNs = meta.nsmap        
-        for node in opfdom.xpath("//*[local-name() = 'metadata']/*"):
+        
+        meta = opfdom.getElementsByTagName("metadata")[0]
+        #self.metaNs = meta.nsmap        
+        for node in opfdom.getElementsByTagName("metadata").childNodes:
             meta = {}
-            [nsurl, tagname] = lxmlNStagtolist(node.tag)
+            tagname = node.tagName
             
             self.dc
             
             if tagname.tolower() == "title":
-                self.Title = node.value
+                self.Title = node.firstChild.data
             if tagname.tolower() == "creator":
-                self.Title = node.value
+                self.Title = node.firstChild.data
             if tagname.tolower() == "subject":
-                self.Title = node.value
+                self.Title = node.firstChild.data
             if tagname.tolower() == "description":
-                self.Title = node.value
+                self.Title = node.firstChild.data
             if tagname.tolower() == "publisher":
-                self.Title = node.value
+                self.Title = node.firstChild.data
             if tagname.tolower() == "contributor":
-                self.Title = node.value
+                self.Title = node.firstChild.data
             if tagname.tolower() == "date":
-                self.Title = node.value
+                self.Title = node.firstChild.data
             if tagname.tolower() == "type":
-                self.Title = node.value
+                self.Title = node.firstChild.data
             if tagname.tolower() == "format":
-                self.Title = node.value
+                self.Title = node.firstChild.data
             if tagname.tolower() == "identifier":
-                self.Title = node.value
+                self.Title = node.firstChild.data
             if tagname.tolower() == "source":
-                self.Title = node.value
+                self.Title = node.firstChild.data
             if tagname.tolower() == "language":
-                self.Title = node.value
+                self.Title = node.firstChild.data
             if tagname.tolower() == "relation":
-                self.Title = node.value
+                self.Title = node.firstChild.data
             if tagname.tolower() == "coverage":
-                self.Title = node.value
+                self.Title = node.firstChild.data
             if tagname.tolower() == "rights":
-                self.Title = node.value
-            meta["nsurl"] = nsurl
+                self.Title = node.firstChild.data
             meta["tag"] = tagname
-            for ns in self.metaNs:
-                if "{"+self.metaNs[ns]+"}" == nsurl:
-                    if ns == None:
-                        ns = ""
-                    else:
-                        ns = ns+":"
-                    meta["nstag"] = ns+tagname
-                    
-            if node.attrib:
-                meta["attr"] = {}
-                for attr in node.attrib:
-                    [nsurl, attrname] = lxmlNStagtolist(attr)
-                    attrId = False
-                    for ns in self.metaNs:
-                        if "{"+self.metaNs[ns]+"}" == nsurl:
-                            if ns == None:
-                                ns = ""
-                            else:
-                                ns = ns+":"
-                            attrId = ns+attrname
-                    if attrId:
-                        meta["attr"][attrId] = {attr:node.attrib[attr]} 
-
-            if node.text:
-                meta["value"] = node.text
-        
-        if len(meta) > 0:
-            for ele in meta:
-                if ele["nstag"] == "dc:title":
-                    self.Title = ele["value"]
-                if ele["nstag"] == "dc:creator":
-                    self.Title = ele["value"]
-                if ele["nstag"] == "dc:identifier":
-                    self.Title = ele["value"]
         
     
 class OPF ():
@@ -219,15 +187,16 @@ class OPF ():
         dosomething = 1
     
     def _readmanifest (self):
-        for node in self.opfdom.xpath("//*[local-name() = 'manifest']//*[local-name() ='item']"):
-            relpath = _filerelpath(self.opfpath, os.path.join(os.path.dirname(self.opfpath), node.get('href')))
+        protomani = self.opfdom.getElementsByTagName("manifest")[0]
+        for node in protomani.getElementsByTagName("item"):
+            relpath = _filerelpath(self.opfpath, os.path.join(os.path.dirname(self.opfpath), node.getAttribute('href')))
             abspath = os.path.join(os.path.dirname(self.opfpath), relpath)
             for item in self.filelist:
                 if item.archloc == abspath:
-                    if node.get("id"):
-                        item.opfid = node.get("id")
-                    if node.get("media-type"):
-                        item.mimetype = node.get("media-type")
+                    if node.getAttribute("id"):
+                        item.opfid = node.getAttribute("id")
+                    if node.getAttribute("media-type"):
+                        item.mimetype = node.getAttribute("media-type")
                     item.opf = True
                     item.opfRelLoc = relpath
                     self.manifest.append(item)
@@ -236,26 +205,27 @@ class OPF ():
         dotsomething =1 
                     
     def _readspine (self):
-        spine = self.opfdom.xpath("//*[local-name() = 'spine']")[0]
-        if spine.get("toc"):
+        spine = self.opfdom.getElementsByTagName("spine")[0]
+        if spine.getAttribute("toc"):
             for item in self.manifest:
-                if spine.get("toc") == item.opfid:
+                if spine.getAttribute("toc") == item.opfid:
                     self.NCXfile = item.archloc
         
-        for node in self.opfdom.xpath("//*[local-name() ='spine']//*[local-name() ='itemref']"):
+        for node in spine.getElementsByTagName("itemref"):
             for item in self.manifest:
-                if item.opfid == node.get("idref"):
-                    if not node.get("linear") == "no":
+                if item.opfid == node.getAttribute("idref"):
+                    if not node.getAttribute("linear") == "no":
                         item.linear = True
                     item.spine = True
                     self.spine.append(item)
                     
     def _readrefs (self):
-        for node in self.opfdom.xpath("//*[local-name() ='guide']//*[local-name() ='reference']"):
+        refs = self.opfdom.getElementsByTagName("guide")[0]
+        for node in refs.getElementsByTagName("reference"):
             for item in self.filelist:
-                if item.archloc == node.get("href"):
-                    item.refs.append([node.get("type"), node.get("title")])
-                    self.refs.append([node.get("type"), node.get("title"), item])
+                if item.archloc == node.getAttribute("href"):
+                    item.refs.append([node.getAttribute("type"), node.getAttribute("title")])
+                    self.refs.append([node.getAttribute("type"), node.getAttribute("title"), item])
 class NCX:
     def __init__ (self, ncxfile):
         self.ncx = ncxfile
