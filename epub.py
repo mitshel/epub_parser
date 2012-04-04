@@ -73,17 +73,15 @@ class EpubItem (object):
 
     def open (self):
         try:
-            out = self.archive.open(self.archloc, "a")
+            return self.archive.open(self.archloc, "r")
         except:
             raise IOError, "Cannot open '%s' for reading" % self.archloc
-        return out
        
     def read (self):
         try:
-            out = self.archive.open(self.archloc, "a")
+            return self.archive.read(self.archloc)
         except:
             raise IOError, "Cannot open '%s' for reading" % self.archloc
-        return out.read()
     
     def write (self, input, stor=False):
         try:
