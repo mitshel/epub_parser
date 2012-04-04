@@ -22,7 +22,7 @@ def lxmlNStagtolist (element):
 
 def _getcontainer (archive):
     try:
-        container = archive.open(os.path.join("META-INF", "container.xml"))
+        container = archive.open("META-INF/container.xml")
     except KeyError:
         raise BadEpubFile, "Unable to open META-INF/container.xml"
     return container
@@ -70,10 +70,17 @@ class EpubItem (object):
         self.refs = []
         self.mimetype = "text/plain"
         self.archive = archive
-        
+
+    def open (self):
+        try:
+            out = self.archive.open(self.archloc, "a")
+        except:
+            raise IOError, "Cannot open '%s' for reading" % self.archloc
+        return out
+       
     def read (self):
         try:
-            out = self.archive.open(self.archloc, "r")
+            out = self.archive.open(self.archloc, "a")
         except:
             raise IOError, "Cannot open '%s' for reading" % self.archloc
         return out.read()
@@ -194,7 +201,7 @@ class OPF ():
             relpath = _filerelpath(self.opfpath, os.path.join(os.path.dirname(self.opfpath), node.getAttribute('href')))
             abspath = os.path.join(os.path.dirname(self.opfpath), relpath)
             for item in self.filelist:
-                if item.archloc == abspath:
+                if os.path.normpath(item.archloc) == os.path.normpath(abspath):
                     if node.getAttribute("id"):
                         item.opfid = node.getAttribute("id")
                     if node.getAttribute("media-type"):
@@ -246,6 +253,7 @@ class EpubFile:
             self.epubarch = _checkfile(filename, mode)
             container =_getcontainer(self.epubarch)
             [self.rootfile, rootpath] = _getrootfile(self.epubarch,container)
+            
             self.filelist = self._readContents()
             #for item in self.filelist:
             #    print item.archloc, item.mimetype
