@@ -3,6 +3,11 @@ import os.path
 import mimetypes
 import re
 import xml.dom.minidom
+import tempfile
+import shutil
+import sys
+import atexit
+
 
 #this is a comment
 
@@ -58,14 +63,16 @@ def _filerelpath (opfpath, target):
 
 
 class EpubItem (object):
-    def __init__ (self, archive, archloc):
+    def __init__ (self, archive, archloc, tmpdir):
         self.archloc = archloc
+        self.tmpdir = tmpdir
         self.opfRelLoc = None
         self.idref = None
         self.opf = False
         self.opfid = None
         self.spine = False
         self.ncx = False
+        self.opfEl = None
         self.linear = False
         self.refs = []
         self.mimetype = "text/plain"
@@ -73,37 +80,31 @@ class EpubItem (object):
 
     def open (self):
         try:
-            return self.archive.open(self.archloc, "r")
+            return open(os.path.normpath(os.path.join(self.tmpdir, self.archloc)), "r")
         except:
             raise IOError, "Cannot open '%s' for reading" % self.archloc
        
     def read (self):
         try:
-            return self.archive.read(self.archloc)
+            f= self.open()
+            t = f.read()
+            f.close()
+            return t
         except:
             raise IOError, "Cannot open '%s' for reading" % self.archloc
     
-    def write (self, input, stor=False):
-        try:
-            out = self.archive.open(self.archloc, "w")
-        except:
-            raise IOError, "Cannot open '%s' for writing" % self.archloc
+    def write (self, data, stor=False):
+        #try:
+        out = open(os.path.normpath(os.path.join(self.tmpdir, self.archloc)), "w")
+        #except:
+        #    raise IOError, "Cannot open '%s' for writing" % os.path.normpath(os.path.join(self.tmpdir, self.archloc))
         
-        if stor == False:
-            comptype = zipfile.ZIP_STORED
-        else:
-            comptype = zipfile.ZIP_DEFLATED
-            
-        if os.path.exists(input):
-            try:
-                out.write(input, self.archloc, comptype)
-            except:
-                raise IOError, "Cannot write to  '%s'" % self.archloc
-        else:
-            try:
-                out.writestr(self.archloc, input, comptype)
-            except:
-                raise IOError, "Cannot write to  '%s'" % self.archloc
+        try:
+            out.write(data)
+            out.close()
+        except:
+            out.close()
+            raise IOError, "Cannot write to  '%s'" % self.archloc
 
 
 class metadata ():
@@ -194,52 +195,62 @@ class OPF ():
         dosomething = 1
     
     def _readmanifest (self):
-        protomani = self.opfdom.getElementsByTagName("manifest")[0]
-        for node in protomani.getElementsByTagName("item"):
-            relpath = _filerelpath(self.opfpath, os.path.join(os.path.dirname(self.opfpath), node.getAttribute('href')))
-            abspath = os.path.join(os.path.dirname(self.opfpath), relpath)
-            for item in self.filelist:
-                if os.path.normpath(item.archloc) == os.path.normpath(abspath):
-                    if node.getAttribute("id"):
-                        item.opfid = node.getAttribute("id")
-                    if node.getAttribute("media-type"):
-                        item.mimetype = node.getAttribute("media-type")
-                    item.opf = True
-                    item.opfRelLoc = relpath
-                    self.manifest.append(item)
+        if len(self.opfdom.getElementsByTagName("manifest")) > 0:
+            protomani = self.opfdom.getElementsByTagName("manifest")[0]
+            for node in protomani.getElementsByTagName("item"):
+                relpath = _filerelpath(self.opfpath, os.path.join(os.path.dirname(self.opfpath), node.getAttribute('href')))
+                abspath = os.path.join(os.path.dirname(self.opfpath), relpath)
+                for item in self.filelist:
+                    if os.path.normpath(item.archloc) == os.path.normpath(abspath):
+                        if node.getAttribute("id"):
+                            item.opfid = node.getAttribute("id")
+                        if node.getAttribute("media-type"):
+                            item.mimetype = node.getAttribute("media-type")
+                        item.opf = True
+                        item.opfEl = node
+                        item.opfRelLoc = relpath
+                        self.manifest.append(item)
                     
     def _readmeta (self):
         dotsomething =1 
+        
+    def _updatetmp (self):
+        dosomthing = 1
                     
     def _readspine (self):
-        spine = self.opfdom.getElementsByTagName("spine")[0]
-        if spine.getAttribute("toc"):
-            for item in self.manifest:
-                if spine.getAttribute("toc") == item.opfid:
-                    self.NCXfile = item.archloc
-        
-        for node in spine.getElementsByTagName("itemref"):
-            for item in self.manifest:
-                if item.opfid == node.getAttribute("idref"):
-                    if not node.getAttribute("linear") == "no":
-                        item.linear = True
-                    item.spine = True
-                    self.spine.append(item)
+        if len(self.opfdom.getElementsByTagName("spine")) >0:
+            spine = self.opfdom.getElementsByTagName("spine")[0]
+            if spine.getAttribute("toc"):
+                for item in self.manifest:
+                    if spine.getAttribute("toc") == item.opfid:
+                        self.NCXfile = item.archloc
+            
+            for node in spine.getElementsByTagName("itemref"):
+                for item in self.manifest:
+                    if item.opfid == node.getAttribute("idref"):
+                        if not node.getAttribute("linear") == "no":
+                            item.linear = True
+                        item.spine = True
+                        self.spine.append(item)
                     
     def _readrefs (self):
-        refs = self.opfdom.getElementsByTagName("guide")[0]
-        for node in refs.getElementsByTagName("reference"):
-            for item in self.filelist:
-                if item.archloc == node.getAttribute("href"):
-                    item.refs.append([node.getAttribute("type"), node.getAttribute("title")])
-                    self.refs.append([node.getAttribute("type"), node.getAttribute("title"), item])
+        if len(self.opfdom.getElementsByTagName("guide"))>0:
+            refs = self.opfdom.getElementsByTagName("guide")[0]
+            for node in refs.getElementsByTagName("reference"):
+                for item in self.filelist:
+                    if item.archloc == node.getAttribute("href"):
+                        item.refs.append([node.getAttribute("type"), node.getAttribute("title")])
+                        self.refs.append([node.getAttribute("type"), node.getAttribute("title"), item])
 class NCX:
-    def __init__ (self, ncxfile):
-        self.ncx = ncxfile
-        
-        
-        
-                
+    def __init__ (self, opf):
+        self.opf = opf
+        self.filename = self._getFilename()
+    
+    def _getFilename(self):
+        return True
+    
+    def _updatetmp(self):
+        dosomethinghere = 1                 
 
 class EpubInfo (object):
     def __init__ (self, filename=None):
@@ -247,24 +258,64 @@ class EpubInfo (object):
 
 class EpubFile:
     def __init__ (self, filename=None, mode="r"):
-        if filename:
-            self.epubarch = _checkfile(filename, mode)
+        self.mode = mode
+        self.filename = filename
+        self.open()
+        self.tmpdir = tempfile.mkdtemp()
+        self.epubarch.extractall(self.tmpdir)
+        self.filelist = self._readContents()
+        self.opf = OPF(self.rootpath, self.rootfile, self.filelist)
+        self.opf._readmeta()
+        self.opf._readmanifest()
+        self.opf._readspine()
+        self.opf._readrefs()
+        self.ncx = NCX(self.opf)
+        self.ignorelist = ["Thumbs.db",
+                           ".dsstore",
+                           "mimetype"]
+        
+
+    
+    def test_for_ignore(self, filename):
+        for ignorefile in self.ignorelist:
+            #print filename
+            if ignorefile.lower() == filename.lower():
+                return False
+        return True
+    
+    def open (self):
+        if self.filename:
+            self.epubarch = _checkfile(self.filename, "r")
             container =_getcontainer(self.epubarch)
-            [self.rootfile, rootpath] = _getrootfile(self.epubarch,container)
+            [self.rootfile, self.rootpath] = _getrootfile(self.epubarch,container)
             
-            self.filelist = self._readContents()
-            #for item in self.filelist:
-            #    print item.archloc, item.mimetype
-            self.opf = OPF(rootpath, self.rootfile, self.filelist)
-            self.opf._readmeta()
-            self.opf._readmanifest()
-            self.opf._readspine()
-            self.opf._readrefs()
+    
+    def save (self):
+        if self.mode == "rw" or self.mode == "w":
+            self.opf._updatetmp()
+            self.ncx._updatetmp()
+            self.epubarch.close()
+            new_epub = zipfile.ZipFile(self.filename, "w")
+            new_epub.writestr("mimetype", "application/epub+zip", zipfile.ZIP_STORED)
+            for subdir, dirs, files in os.walk(self.tmpdir, False):
+                for name in files:
+                    target = os.path.join(subdir, name)
+                    new_target = target[len(os.path.join(self.tmpdir,"")):]
+                    if self.test_for_ignore(name):
+                        new_epub.write(target,new_target, zipfile.ZIP_DEFLATED)
+            new_epub.close()
+            self.open()
+    
+    def close (self):
+        self.epubarch.close()
+        shutil.rmtree(self.tmpdir)
+        del self
+                    
             
     def _readContents (self):
         out = []
         for oriItem in self.epubarch.infolist():
-            item = EpubItem(self.epubarch, oriItem.filename)
+            item = EpubItem(self.epubarch, oriItem.filename, self.tmpdir)
             item.mimetype = mimetypes.guess_type(oriItem.filename)[0]
             out.append(item)
         return out

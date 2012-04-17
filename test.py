@@ -7,7 +7,6 @@ from PIL import Image
 import epub
 import math
 from StringIO import StringIO
-import base64
 
 epub.EpubFile
 
