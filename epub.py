@@ -5,27 +5,30 @@ import re
 import xml.dom.minidom
 import tempfile
 import shutil
-import sys
-import atexit
+#import sys
+#import atexit
 
 
 #this is a comment
 
 class BadEpubFile (Exception):
     pass
-        
-def _checkfile (filename, mode="r"):
+
+
+def _checkfile(filename, mode="r"):
     try:
         testfile = zipfile.ZipFile(filename, mode)
     except zipfile.BadZipfile:
         raise BadEpubFile, "file is not an Epub File"
     return testfile
 
-def lxmlNStagtolist (element):
+
+def lxmlNStagtolist(element):
     plonk = re.match("(\{[^\}]*\})?(.*)", element)
     return [plonk.group(1), plonk.group(2)]
 
-def _getcontainer (archive):
+
+def _getcontainer(archive):
     try:
         container = archive.open("META-INF/container.xml")
     except KeyError:
@@ -33,37 +36,38 @@ def _getcontainer (archive):
     return container
     #return archive.open("mimetype")
 
-def _getrootfile (archive, container):
+
+def _getrootfile(archive, container):
     try:
         dom = xml.dom.minidom.parse(container)
         dom.normalize()
     except:
         raise BadEpubFile, "META-INF/container.xml is invalid XML"
-    
-    try: 
+
+    try:
         rootfile = dom.getElementsByTagName("rootfile")[0]
     except:
         raise BadEpubFile, "META-INF/container.xml is improperly formatted (unable to find rootfile)"
-    
+
     try:
         root = archive.open(rootfile.getAttribute("full-path"))
     except:
         raise BadEpubFile, "There is no item named '%s' in this epubfile" % rootfile.getAttribute("full-path")
-    
+
     try:
         rootdom = xml.dom.minidom.parse(root)
         rootdom.normalize()
     except:
         raise BadEpubFile, "'%s' is invalid XML" % rootfile.getAttribute("full-path")
-    
+
     return [rootdom, rootfile.getAttribute("full-path")]
 
-def _filerelpath (opfpath, target):
+def _filerelpath(opfpath, target):
     return os.path.relpath(target, os.path.dirname(opfpath))
 
 
 class EpubItem (object):
-    def __init__ (self, archive, archloc, tmpdir):
+    def __init__(self, archive, archloc, tmpdir):
         self.archloc = archloc
         self.tmpdir = tmpdir
         self.opfRelLoc = None
@@ -78,27 +82,27 @@ class EpubItem (object):
         self.mimetype = "text/plain"
         self.archive = archive
 
-    def open (self):
+    def open(self, mode="r"):
         try:
-            return open(os.path.normpath(os.path.join(self.tmpdir, self.archloc)), "r")
+            return open(os.path.normpath(os.path.join(self.tmpdir, self.archloc)), mode)
         except:
             raise IOError, "Cannot open '%s' for reading" % self.archloc
-       
-    def read (self):
+
+    def read(self, mode="r"):
         try:
-            f= self.open()
+            f = self.open(mode)
             t = f.read()
             f.close()
             return t
         except:
             raise IOError, "Cannot open '%s' for reading" % self.archloc
-    
-    def write (self, data, stor=False):
+
+    def write(self, data, stor=False):
         #try:
         out = open(os.path.normpath(os.path.join(self.tmpdir, self.archloc)), "w")
         #except:
         #    raise IOError, "Cannot open '%s' for writing" % os.path.normpath(os.path.join(self.tmpdir, self.archloc))
-        
+
         try:
             out.write(data)
             out.close()
@@ -108,36 +112,36 @@ class EpubItem (object):
 
 
 class metadata ():
-    def __init__ (self):
-        self.data = {"title":[],
-                   "creator":[],
-                   "subject":[],
-                   "description":[],
-                   "publisher":[],
-                   "contributor":[],
-                   "date":[],
-                   "type":[],
-                   "format":[],
-                   "identifier":[],
-                   "source":[],
-                   "language":[],
-                   "relation":[],
-                   "coverage":[],
-                   "rights":[],
-                   "meta":[]
+    def __init__(self):
+        self.data = {"title": [],
+                   "creator": [],
+                   "subject": [],
+                   "description": [],
+                   "publisher": [],
+                   "contributor": [],
+                   "date": [],
+                   "type": [],
+                   "format": [],
+                   "identifier": [],
+                   "source": [],
+                   "language": [],
+                   "relation": [],
+                   "coverage": [],
+                   "rights": [],
+                   "meta": []
                    }
-    
-    def read (self, opfdom):
+
+    def read(self, opfdom):
         #Name spaces are frickin annoying I have discovered, please see below for retardation
-        
+
         meta = opfdom.getElementsByTagName("metadata")[0]
-        #self.metaNs = meta.nsmap        
+        #self.metaNs = meta.nsmap
         for node in opfdom.getElementsByTagName("metadata").childNodes:
             meta = {}
             tagname = node.tagName
-            
+
             self.dc
-            
+
             if tagname.tolower() == "title":
                 self.Title = node.firstChild.data
             if tagname.tolower() == "creator":
@@ -169,32 +173,32 @@ class metadata ():
             if tagname.tolower() == "rights":
                 self.Title = node.firstChild.data
             meta["tag"] = tagname
-        
-    
+
+
 class OPF ():
-    def __init__ (self, opfpath, opfdom, filelist):
+    def __init__(self, opfpath, opfdom, filelist):
         self.clearopf()
         self.opfdom = opfdom
         self.opfpath = opfpath
         self.filelist = filelist
         self.NCXfile = None
-        
-    def clearopf (self):
+
+    def clearopf(self):
         self.manifest = []
         self.spine = []
         self.meta = []
         self.refs = []
-        
-    def read (self):
+
+    def read(self):
         self._readmeta()
         self._readmanifest()
         self._readspine()
         self._readrefs()
-    
-    def getref (self):
+
+    def getref(self):
         dosomething = 1
-    
-    def _readmanifest (self):
+
+    def _readmanifest(self):
         if len(self.opfdom.getElementsByTagName("manifest")) > 0:
             protomani = self.opfdom.getElementsByTagName("manifest")[0]
             for node in protomani.getElementsByTagName("item"):
@@ -210,21 +214,21 @@ class OPF ():
                         item.opfEl = node
                         item.opfRelLoc = relpath
                         self.manifest.append(item)
-                    
-    def _readmeta (self):
+
+    def _readmeta(self):
         dotsomething =1 
-        
-    def _updatetmp (self):
+
+    def _updatetmp(self):
         dosomthing = 1
-                    
-    def _readspine (self):
-        if len(self.opfdom.getElementsByTagName("spine")) >0:
+
+    def _readspine(self):
+        if len(self.opfdom.getElementsByTagName("spine")) > 0:
             spine = self.opfdom.getElementsByTagName("spine")[0]
             if spine.getAttribute("toc"):
                 for item in self.manifest:
                     if spine.getAttribute("toc") == item.opfid:
                         self.NCXfile = item.archloc
-            
+
             for node in spine.getElementsByTagName("itemref"):
                 for item in self.manifest:
                     if item.opfid == node.getAttribute("idref"):
@@ -232,32 +236,36 @@ class OPF ():
                             item.linear = True
                         item.spine = True
                         self.spine.append(item)
-                    
-    def _readrefs (self):
-        if len(self.opfdom.getElementsByTagName("guide"))>0:
+
+    def _readrefs(self):
+        if len(self.opfdom.getElementsByTagName("guide")) > 0:
             refs = self.opfdom.getElementsByTagName("guide")[0]
             for node in refs.getElementsByTagName("reference"):
                 for item in self.filelist:
                     if item.archloc == node.getAttribute("href"):
                         item.refs.append([node.getAttribute("type"), node.getAttribute("title")])
                         self.refs.append([node.getAttribute("type"), node.getAttribute("title"), item])
+
+
 class NCX:
-    def __init__ (self, opf):
+    def __init__(self, opf):
         self.opf = opf
         self.filename = self._getFilename()
-    
+
     def _getFilename(self):
         return True
-    
+
     def _updatetmp(self):
         dosomethinghere = 1                 
 
-class EpubInfo (object):
-    def __init__ (self, filename=None):
+
+class EpubInfo(object):
+    def __init__(self, filename=None):
         dosomethinghere = 1
 
+
 class EpubFile:
-    def __init__ (self, filename=None, mode="r"):
+    def __init__(self, filename=None, mode="r"):
         self.mode = mode
         self.filename = filename
         self.open()
@@ -273,24 +281,21 @@ class EpubFile:
         self.ignorelist = ["Thumbs.db",
                            ".dsstore",
                            "mimetype"]
-        
 
-    
     def test_for_ignore(self, filename):
         for ignorefile in self.ignorelist:
             #print filename
             if ignorefile.lower() == filename.lower():
                 return False
         return True
-    
-    def open (self):
+
+    def open(self):
         if self.filename:
             self.epubarch = _checkfile(self.filename, "r")
-            container =_getcontainer(self.epubarch)
-            [self.rootfile, self.rootpath] = _getrootfile(self.epubarch,container)
-            
-    
-    def save (self):
+            container = getcontainer(self.epubarch)
+            [self.rootfile, self.rootpath] = getrootfile(self.epubarch, container)
+
+    def save(self):
         if self.mode == "rw" or self.mode == "w":
             self.opf._updatetmp()
             self.ncx._updatetmp()
@@ -300,26 +305,24 @@ class EpubFile:
             for subdir, dirs, files in os.walk(self.tmpdir, False):
                 for name in files:
                     target = os.path.join(subdir, name)
-                    new_target = target[len(os.path.join(self.tmpdir,"")):]
+                    new_target = target[len(os.path.join(self.tmpdir, "")):]
                     if self.test_for_ignore(name):
-                        new_epub.write(target,new_target, zipfile.ZIP_DEFLATED)
+                        new_epub.write(target, new_target, zipfile.ZIP_DEFLATED)
             new_epub.close()
             self.open()
-    
-    def close (self):
+
+    def close(self):
         self.epubarch.close()
         shutil.rmtree(self.tmpdir)
         del self
-                    
-            
-    def _readContents (self):
+
+    def _readContents(self):
         out = []
         for oriItem in self.epubarch.infolist():
             item = EpubItem(self.epubarch, oriItem.filename, self.tmpdir)
             item.mimetype = mimetypes.guess_type(oriItem.filename)[0]
             out.append(item)
         return out
-    
-    def _readOPF (self):
+
+    def _readOPF(self):
         dosomthing = 1 
-    
