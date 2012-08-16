@@ -27,5 +27,5 @@ for item in test.info.opf.spine:
 	print item.opfRelLoc
 
 #random test 1
-#item = test.info.opf.manifest[1]
-#print item.info()
+item = test.info.opf.manifest[1]
+print item.info()
