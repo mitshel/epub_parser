@@ -175,10 +175,76 @@ class epubContents(object):
 
 class META(object):
     """docstring for META"""
-    def __init__(self, info):
-        self.opf = info.opf
-        self.ncx = info.ncx
+    def __init__(self, opfDom, ncxDom, contents):
+        self.opfDom = opfDom
+        self.ncxDom = ncxDom
+        self.contents = contents
+        self.metaDom = None
 
+        self.data = {}
+        self.templates = {
+                    "title": {"name": "dc:title", "attr": None, "id": None, "unique": False, "required": True},
+                    "author": {"name": "dc:creator", "attr": [("opf:role", "aut")], "id": None, "unique": False, "required": True},
+                    "identifer": {"name": "dc:identifier", "attr": [("opf:scheme", None)], "id": None, "unique": False, "required": True},
+                    "language": {"name": "dc:language", "attr": None, "id": None, "unique": False, "required": True},
+                    "cover": {"name": "meta", "attr": [("name", "cover"), ("content", None)], "id": None, "unique": True, "required": True},
+                    }
+        self.getMetaDom()
+        self.getData()
+
+    def getMetaDom(self):
+        # check for metadata in OPF
+        if len(self.opfDom.getElementsByTagName("metadata")) > 0:
+            self.metaDom = self.opfDom.getElementsByTagName("metadata")[0]
+        else:
+            return False
+
+    def _loopNodes(self, parent, cnodes=[]):
+        for node in parent.childNodes:
+            if not node.nodeType == node.TEXT_NODE:
+                cnodes.append(node)
+                if len(node.childNodes):
+                    cnodes = self._loopNodes(node, cnodes)
+        return cnodes
+
+    def addDataTemplate(self, name, nodeName, attr=None, nid=None, unique=False, required=None):
+        if not name in self.templates:
+            self.templates[name] = {"name": nodeName, "attr": attr, "id": nid, "unique": unique, "required": required}
+        else:
+            print "Already a template with the name '%s' (this name must be unique to the template array and should not be confused with node name)" % name
+
+    def getData(self):
+        self.data = []
+        for node in self._loopNodes(self.metaDom):
+            for temp_name, temp_pattern in self.templates.iteritems():
+                if self._testNodeAgainstTemplate(node, temp_pattern):
+                    if not temp_name in self.data:
+                        self.data[temp_name] = []
+                    self.data[temp_name].append(node)
+
+    def _testNodeAgainstTemplate(self, node, template):
+        if node.nodeName == template["name"]:
+            if template["attr"]:
+                if not node.hasAttributes():
+                    return False
+                for attr in template["attr"]:
+                    attr_name = attr[0]
+                    attr_value = attr[1]
+                    if not node.hasAttribute(attr_name):
+                        return False
+                    if attr_value:
+                        if not node.getAttribute(attr_name) == attr_value:
+                            return False
+            if template["id"]:
+                if node.hasAttribute("id"):
+                    if not node.getAttribute(attr_name) == template["id"]:
+                        return False
+                else:
+                    return False
+            return True
+
+        else:
+            return False
 
 class OPF():
     """OPF handling class"""
@@ -319,6 +385,7 @@ class NCX(object):
     """docstring for NCX"""
     def __init__(self, ncxLocation, contents):
         self.path = ncxLocation
+        self.ncxdom = None
 
 
 class epubInfo(object):
@@ -360,7 +427,7 @@ class epubInfo(object):
         self.ncx = NCX(self.opf.ncxLocation, self.contents)
 
         # Meta data
-        self.meta = META(self)
+        self.meta = META(self.opf.opfdom, self.ncx.ncxdom, self.contents)
 
     def _isArchive(self):
         """this is somewhat retarded but.... meh! it deffinately made sense at the time"""

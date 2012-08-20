@@ -23,9 +23,12 @@ test = epub_new.epubFile(os.path.join(os.path.dirname(__file__), "test_files/sam
 #    print item.info()
 
 #spine test
-for item in test.info.opf.spine:
-	print item.opfRelLoc
+#for item in test.info.opf.spine:
+#	print item.opfRelLoc
 
 #random test 1
-item = test.info.opf.manifest[1]
-print item.info()
+#item = test.info.opf.manifest[1]
+#print item.info()
+
+#meta data test
+print test.info.meta.data
