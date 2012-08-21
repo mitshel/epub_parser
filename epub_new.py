@@ -2,6 +2,7 @@ import zipfile
 import os.path
 import mimetypes
 import re
+import math
 import xml.dom.minidom
 import tempfile
 import shutil
@@ -176,6 +177,16 @@ class epubContents(object):
 class META(object):
     """docstring for META"""
     def __init__(self, opfDom, ncxDom, contents):
+
+        # constants
+        self.UNIQUE = 8
+        self.REQUIRED = 16
+        self.TEXTVALUE = 32
+        self.ATTRVALUE = 64
+        self.IDREF = 128
+        self.OPFPATHREF = 256
+        self.ROOTPATHREF = 512
+
         self.opfDom = opfDom
         self.ncxDom = ncxDom
         self.contents = contents
@@ -183,11 +194,11 @@ class META(object):
 
         self.data = {}
         self.templates = {
-                    "title": {"name": "dc:title", "attr": None, "id": None, "unique": False, "required": True},
-                    "author": {"name": "dc:creator", "attr": [("opf:role", "aut")], "id": None, "unique": False, "required": True},
-                    "identifer": {"name": "dc:identifier", "attr": [("opf:scheme", None)], "id": None, "unique": False, "required": True},
-                    "language": {"name": "dc:language", "attr": None, "id": None, "unique": False, "required": True},
-                    "cover": {"name": "meta", "attr": [("name", "cover"), ("content", None)], "id": None, "unique": True, "required": True},
+                    "title": {"name": "dc:title", "attr": None, "id": None, "flags": self.REQUIRED | self.TEXTVALUE},
+                    "author": {"name": "dc:creator", "attr": [("opf:role", "aut", None)], "id": None, "flags": self.REQUIRED | self.TEXTVALUE},
+                    "identifer": {"name": "dc:identifier", "attr": [("opf:scheme", None, self.ATTRVALUE)], "id": None, "flags": self.REQUIRED | self.TEXTVALUE},
+                    "language": {"name": "dc:language", "attr": None, "id": None, "flags": self.REQUIRED | self.TEXTVALUE},
+                    "cover": {"name": "meta", "attr": [("name", "cover"), ("content", None, self.ATTRVALUE)], "id": None, "flags": self.REQUIRED},
                     }
         self.getMetaDom()
         self.getData()
@@ -199,6 +210,11 @@ class META(object):
         else:
             return False
 
+    def _testFlag(self, flags, test):
+        sample = self.UNIQUE | self.ATTRVALUE | self.OPFPATHREF
+        print bin(self.UNIQUE)
+        print bin(sample)
+
     def _loopNodes(self, parent, cnodes=[]):
         for node in parent.childNodes:
             if not node.nodeType == node.TEXT_NODE:
@@ -207,14 +223,14 @@ class META(object):
                     cnodes = self._loopNodes(node, cnodes)
         return cnodes
 
-    def addDataTemplate(self, name, nodeName, attr=None, nid=None, unique=False, required=None):
+    def addDataTemplate(self, name, nodeName, attr=None, nid=None, flags=0):
         if not name in self.templates:
-            self.templates[name] = {"name": nodeName, "attr": attr, "id": nid, "unique": unique, "required": required}
+            self.templates[name] = {"name": nodeName, "attr": attr, "id": nid, "flags": []}
         else:
             print "Already a template with the name '%s' (this name must be unique to the template array and should not be confused with node name)" % name
 
     def getData(self):
-        self.data = []
+        self.data = {}
         for node in self._loopNodes(self.metaDom):
             for temp_name, temp_pattern in self.templates.iteritems():
                 if self._testNodeAgainstTemplate(node, temp_pattern):

@@ -30,5 +30,13 @@ test = epub_new.epubFile(os.path.join(os.path.dirname(__file__), "test_files/sam
 #item = test.info.opf.manifest[1]
 #print item.info()
 
+metadata = test.info.meta
+
 #meta data test
-print test.info.meta.data
+#print test.info.meta.data
+
+#meta data test2
+#metadata.addDataTemplate("test", "test", None, None,  metadata.UNIQUE | metadata.UNIQUE)
+
+#meta data test3
+metadata._testFlag(None, None)
