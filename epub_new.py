@@ -520,6 +520,25 @@ class epubInfo(object):
 
         return rootfile.getAttribute("full-path")
 
+    def findIDreferences(self, *query):
+        if not query:
+            query = [r'(.*?)']
+        for item in self.contents.contents:
+            if item.mimetype.endswith("+xml") or item.mimetype.endswith("xhtml"):
+                content = item.read()
+                for que in query:
+                    qidDec = re.compile(r"id=(\"|\')" + que + r"\1")
+                    qidRef = re.compile(r"([^\s]*)=(\"|\')([^#]*)#" + que + r"\2")
+                    if qidDec.search(content):
+                        print str(que) + " declarations:"
+                    for match in re.finditer(qidDec, content):
+                        print "\t" + item.opfRelLoc
+                    if qidRef.search(content):
+                        print str(que) + " Referneces:"
+                    for match in re.finditer(qidRef, content):
+                        print "\t" + item.opfRelLoc
+
+
     def close(self):
         # destory tempfiles when done
         if self.tmpLocation:
