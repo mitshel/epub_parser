@@ -1,11 +1,11 @@
 #!/usr/bin/python
 
-import epub_new
+import epub
 import os
 
 
-test = epub_new.epubFile(os.path.join(os.path.dirname(__file__), "test_files/sample_file.epub"))
-#test = epub_new.epubFile(os.path.join(os.path.dirname(__file__), "test_files/sample_file.epub"))
+test = epub.epubFile(os.path.join(os.path.dirname(__file__), "test_files/sample_file.epub"))
+#test = epub.epubFile(os.path.join(os.path.dirname(__file__), "test_files/sample_file.epub"))
 
 #get opf location test
 #print test.info._getOPFLocation()
