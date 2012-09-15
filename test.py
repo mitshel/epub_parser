@@ -30,7 +30,7 @@ test = epub_new.epubFile(os.path.join(os.path.dirname(__file__), "test_files/sam
 #item = test.info.opf.manifest[1]
 #print item.info()
 
-#metadata = test.info.meta
+metadata = test.info.meta
 
 #meta data test
 #print test.info.meta.data
@@ -39,9 +39,12 @@ test = epub_new.epubFile(os.path.join(os.path.dirname(__file__), "test_files/sam
 #metadata.addDataTemplate("test", "test", None, None,  metadata.UNIQUE | metadata.UNIQUE)
 
 #meta data test3
-#metadata._testFlag(None, None)
+#print metadata._testFlag(metadata.REQUIRED | metadata.TEXTVALUE | metadata.ATTRVALUE, metadata.REQUIRED)
+
+#meta data test4
+print metadata.getMetaData("cover").opfRelLoc
 
 
 #id finder test
-test.info.findIDreferences("navPoint-6")
+#test.info.findIDreferences("navPoint-6")
 #test.info.findIDreferences()

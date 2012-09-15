@@ -6,6 +6,7 @@ import math
 import xml.dom.minidom
 import tempfile
 import shutil
+import warnings
 
 
 class badEpubFile(Exception):
@@ -186,6 +187,7 @@ class META(object):
         self.IDREF = 128
         self.OPFPATHREF = 256
         self.ROOTPATHREF = 512
+        self.ITEMVALUE = 1024
 
         self.opfDom = opfDom
         self.ncxDom = ncxDom
@@ -198,7 +200,7 @@ class META(object):
                     "author": {"name": "dc:creator", "attr": [("opf:role", "aut", None)], "id": None, "flags": self.REQUIRED | self.TEXTVALUE},
                     "identifer": {"name": "dc:identifier", "attr": [("opf:scheme", None, self.ATTRVALUE)], "id": None, "flags": self.REQUIRED | self.TEXTVALUE},
                     "language": {"name": "dc:language", "attr": None, "id": None, "flags": self.REQUIRED | self.TEXTVALUE},
-                    "cover": {"name": "meta", "attr": [("name", "cover"), ("content", None, self.ATTRVALUE)], "id": None, "flags": self.REQUIRED},
+                    "cover": {"name": "meta", "attr": [("name", "cover", None), ("content", None, self.ITEMVALUE | self.IDREF)], "id": None, "flags": self.REQUIRED},
                     }
         self.getMetaDom()
         self.getData()
@@ -211,9 +213,19 @@ class META(object):
             return False
 
     def _testFlag(self, flags, test):
-        sample = self.UNIQUE | self.ATTRVALUE | self.OPFPATHREF
-        print bin(self.UNIQUE)
-        print bin(sample)
+        constants = [self.UNIQUE, self.REQUIRED, self.TEXTVALUE, self.ATTRVALUE, self.IDREF, self.OPFPATHREF, self.ROOTPATHREF, self.ITEMVALUE]
+        constants.sort(reverse=True)
+        tester = 0
+        test_against = test
+        for constant in constants:
+            if flags >= constant:
+                if test_against >= constant:
+                    test_against = test_against - constant
+                    tester = tester + constant
+                flags = flags - constant
+        if tester == test:
+            return True
+        return False
 
     def _loopNodes(self, parent, cnodes=[]):
         for node in parent.childNodes:
@@ -228,6 +240,48 @@ class META(object):
             self.templates[name] = {"name": nodeName, "attr": attr, "id": nid, "flags": []}
         else:
             print "Already a template with the name '%s' (this name must be unique to the template array and should not be confused with node name)" % name
+
+    def getMetaData(self, value):
+        if not value in self.templates:
+            warnings.warn("No Template", "No matching template can be found for %s" % value)
+            return None
+        template = self.templates[value]
+        output = []
+        if not value in self.data:
+            warnings.warn("Meta Data Not Found", "No Metadata element could be found matching template for %s" % value)
+            return None
+        for element in self.data[value]:
+            elData = []
+            if self._testFlag(template["flags"], self.TEXTVALUE):
+                elData.append(element.firstChild.nodeValue)
+
+            elif self._testFlag(template["flags"], self.ITEMVALUE | self.IDREF):
+                elData.append(self.contents.getItemFromOpfId(element.firstChild.nodeValue))
+            elif self._testFlag(template["flags"], self.ITEMVALUE):
+                elData.append(self.contents.getItemFromOpf(element.firstChild.nodeValue))
+            elif self._testFlag(template["flags"], self.IDREF):
+                elData.append(self.contents.getItemFromOpfId(element.firstChild.nodeValue).opfRelLoc)
+
+            if template["attr"]:
+                for attr in template["attr"]:
+                    attr_name, attr_value, attr_flags = attr
+                    elvalue = element.getAttribute(attr_name)
+                    if self._testFlag(attr_flags, self.ATTRVALUE):
+                        elData.append(elvalue)
+                    elif self._testFlag(attr_flags, self.ITEMVALUE | self.IDREF):
+                        elData.append(self.contents.getItemFromOpfId(elvalue))
+                    elif self._testFlag(attr_flags, self.ITEMVALUE):
+                        elData.append(self.contents.getItemFromOpf(elvalue))
+                    elif self._testFlag(attr_flags, self.IDREF):
+                        elData.append(self.contents.getItemFromOpfId(elvalue).opfRelLoc)
+            if len(elData) > 1:
+                output.append(elData)
+            else:
+                output.append(elData[0])
+        if len(output) > 1:
+            return output
+        else:
+            return output[0]
 
     def getData(self):
         self.data = {}
