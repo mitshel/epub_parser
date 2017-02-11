@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import zipfile
 import os.path
 import mimetypes
@@ -7,7 +9,6 @@ import xml.dom.minidom
 import tempfile
 import shutil
 import warnings
-
 
 class badEpubFile(Exception):
     """Main Exception"""
@@ -197,10 +198,15 @@ class META(object):
         self.data = {}
         self.templates = {
                     "title": {"name": "dc:title", "attr": None, "id": None, "flags": self.REQUIRED | self.TEXTVALUE},
+                    "description": {"name": "dc:description", "attr": None, "id": None, "flags": self.TEXTVALUE},
                     "author": {"name": "dc:creator", "attr": [("opf:role", "aut", None)], "id": None, "flags": self.REQUIRED | self.TEXTVALUE},
                     "identifer": {"name": "dc:identifier", "attr": [("opf:scheme", None, self.ATTRVALUE)], "id": None, "flags": self.REQUIRED | self.TEXTVALUE},
                     "language": {"name": "dc:language", "attr": None, "id": None, "flags": self.REQUIRED | self.TEXTVALUE},
+                    "datepub": {"name": "dc:date", "attr": [("opf:event", "publication", self.ATTRVALUE)], "id": None, "flags": self.TEXTVALUE},
+                    "datemod": {"name": "dc:date", "attr": [("opf:event", "modification", self.ATTRVALUE)], "id": None, "flags": self.TEXTVALUE},
+                    "date": {"name": "dc:date", "attr": [("opf:event", None, self.ATTRVALUE)], "id": None, "flags": self.TEXTVALUE},
                     "cover": {"name": "meta", "attr": [("name", "cover", None), ("content", None, self.ITEMVALUE | self.IDREF)], "id": None, "flags": self.REQUIRED},
+
                     }
         self.getMetaDom()
         self.getData()
@@ -216,6 +222,7 @@ class META(object):
         constants = [self.UNIQUE, self.REQUIRED, self.TEXTVALUE, self.ATTRVALUE, self.IDREF, self.OPFPATHREF, self.ROOTPATHREF, self.ITEMVALUE]
         constants.sort(reverse=True)
         tester = 0
+        flags = flags if flags!=None else 0
         test_against = test
         for constant in constants:
             if flags >= constant:
@@ -239,7 +246,7 @@ class META(object):
         if not name in self.templates:
             self.templates[name] = {"name": nodeName, "attr": attr, "id": nid, "flags": []}
         else:
-            print "Already a template with the name '%s' (this name must be unique to the template array and should not be confused with node name)" % name
+            print("Already a template with the name '%s' (this name must be unique to the template array and should not be confused with node name)" % name)
 
     def getMetaData(self, value):
         if not value in self.templates:
@@ -248,7 +255,7 @@ class META(object):
         template = self.templates[value]
         output = []
         if not value in self.data:
-            warnings.warn("Meta Data Not Found", "No Metadata element could be found matching template for %s" % value)
+            #warnings.warn("Meta Data Not Found", "No Metadata element could be found matching template for %s" % value)
             return None
         for element in self.data[value]:
             elData = []
@@ -286,7 +293,7 @@ class META(object):
     def getData(self):
         self.data = {}
         for node in self._loopNodes(self.metaDom):
-            for temp_name, temp_pattern in self.templates.iteritems():
+            for temp_name, temp_pattern in iter(self.templates.items()):
                 if self._testNodeAgainstTemplate(node, temp_pattern):
                     if not temp_name in self.data:
                         self.data[temp_name] = []
@@ -584,13 +591,13 @@ class epubInfo(object):
                     qidDec = re.compile(r"id=(\"|\')" + que + r"\1")
                     qidRef = re.compile(r"([^\s]*)=(\"|\')([^#]*)#" + que + r"\2")
                     if qidDec.search(content):
-                        print str(que) + " declarations:"
+                        print(str(que) + " declarations:")
                     for match in re.finditer(qidDec, content):
-                        print "\t" + item.opfRelLoc
+                        print("\t" + item.opfRelLoc)
                     if qidRef.search(content):
-                        print str(que) + " Referneces:"
+                        print(str(que) + " Referneces:")
                     for match in re.finditer(qidRef, content):
-                        print "\t" + item.opfRelLoc
+                        print("\t" + item.opfRelLoc)
 
 
     def close(self):
